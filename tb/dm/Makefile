@@ -41,10 +41,12 @@ VSIM_GUI_FLAGS          = -gui -debugdb
 VSIM_SCRIPT_BATCH       = vsim_batch.tcl
 VSIM_SCRIPT_GUI         = vsim_gui.tcl
 
-VCS                     = vcs-2017.03-kgf vcs
-VCS_HOME                = /usr/pack/vcs-2017.03-kgf
-VCS_FLAGS               =
-SIMV_FLAGS              =
+#VCS                     = vcs-2017.03-kgf vcs
+VCS                     = vcs
+#VCS_HOME                = /usr/pack/vcs-2017.03-kgf
+VCS_HOME                = /home/eda/vcs-mx-vL-201606
+VCS_FLAGS               = -assert svaext
+SIMV_FLAGS              = -l simv.log
 
 # verilator configuration
 VERILATOR		= verilator
@@ -128,6 +130,7 @@ vsim-all: .opt-rtl
 vcsify: $(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB) remote_bitbang/librbs_vcs.so
 	$(VCS) +vc -sverilog -race=all -ignore unique_checks -full64 \
 		-timescale=1ns/1ps \
+		-P /home/eda/Verdi3_L-2016.06-1/share/PLI/VCS/LINUXAMD64/novas.tab /home/eda/Verdi3_L-2016.06-1/share/PLI/VCS/LINUXAMD64/pli.a \
 		-CC "-I$(VCS_HOME)/include -O3 -march=native" $(VCS_FLAGS) \
 		$(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB) \
 		+incdir+$(RTLSRC_INCDIR)
@@ -174,7 +177,7 @@ download_deps: riscv-dbg/src/dm_pkg.sv \
 	$(RTLSRC_COMMON) $(RTLSRC_TECH) $(RTLSRC_DEBUG)
 
 riscv-dbg/src/dm_pkg.sv:
-	git clone https://github.com/pulp-platform/riscv-dbg.git -b v0.2
+	git clone https://github.com/pulp-platform/riscv-dbg.git -b v0.3
 
 $(RTLSRC_COMMON):
 	git clone https://github.com/pulp-platform/common_cells.git
@@ -185,7 +188,7 @@ $(RTLSRC_TECH):
 	cd tech_cells_generic/ && git checkout $(TECH_SHA)
 
 $(RTLSRC_DEBUG):
-	git clone https://github.com/pulp-platform/riscv-dbg.git -b v0.2
+	git clone https://github.com/pulp-platform/riscv-dbg.git -b v0.3
 
 # openocd server
 remote_bitbang/librbs_veri.so: INCLUDE_DIRS =./ $(VSIM_HOME)/include
@@ -268,6 +271,13 @@ vsim-run-gui: vsim-tb-run-gui
 .PHONY: vcs-run
 vcs-run: vcsify prog/test.hex
 	./simv -sv_lib remote_bitbang/librbs_vcs $(SIMV_FLAGS) "+firmware=prog/test.hex"
+
+vcs-run-dump: vcsify prog/test.hex
+	./simv -sv_lib remote_bitbang/librbs_vcs $(SIMV_FLAGS) "+fsdbdump +firmware=prog/test.hex" 
+
+vcs-run-trace: vcsify prog/test.hex
+	./simv -sv_lib remote_bitbang/librbs_vcs $(SIMV_FLAGS) "+verbose +traceon +fsdbdump +firmware=prog/test.hex"
+
 
 .PHONY: vcs-run-gui
 vcs-run-gui: VCS_FLAGS+=-debug_all

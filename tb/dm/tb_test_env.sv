@@ -110,18 +110,20 @@ module tb_test_env
     cv32e40p_core #(
         .PULP_CLUSTER(PULP_CLUSTER),
         .FPU(FPU),
-        .PULP_ZFINX(PULP_ZFINX),
-        .DM_HALTADDRESS(DM_HALTADDRESS)
+        .PULP_ZFINX(PULP_ZFINX)
+//        .DM_HALTADDRESS(DM_HALTADDRESS)
     ) core_i (
         .clk_i                  ( clk_i                 ),
         .rst_ni                 ( ndmreset_n            ),
 
-        .clock_en_i             ( 1'b1                  ),
-        .test_en_i              ( 1'b0                  ),
+        .pulp_clock_en_i          ( 1'b1                  ),
+        //.test_en_i              ( 1'b0                  ),
 
+        .dm_halt_addr_i (DM_HALTADDRESS),
         .boot_addr_i            ( BOOT_ADDR             ),
-        .core_id_i              ( CORE_ID               ),
-        .cluster_id_i           ( CLUSTER_ID            ),
+        //.core_id_i              ( CORE_ID               ),
+        //.cluster_id_i           ( CLUSTER_ID            ),
+        .hart_id_i              ( (CLUSTER_ID << 5) | CORE_ID      ),
 
         .instr_addr_o           ( instr_addr            ),
         .instr_req_o            ( instr_req             ),
@@ -149,21 +151,22 @@ module tb_test_env
         .apu_master_result_i    ( 32'b0                 ),
         .apu_master_flags_i     ( 5'b0                  ),
 
-        .irq_software_i         ( 1'b0                  ),
-        .irq_timer_i            ( 1'b0                  ),
-        .irq_external_i         ( 1'b0                  ),
-        .irq_fast_i             ( 15'b0                 ),
-        .irq_nmi_i              ( 1'b0                  ),
-        .irq_fastx_i            ( 32'b0                 ),
+        .irq_i (64'b0),
+        //.irq_software_i         ( 1'b0                  ),
+        //.irq_timer_i            ( 1'b0                  ),
+        //.irq_external_i         ( 1'b0                  ),
+        //.irq_fast_i             ( 15'b0                 ),
+        //.irq_nmi_i              ( 1'b0                  ),
+        //.irq_fastx_i            ( 32'b0                 ),
         .irq_ack_o              ( irq_ack               ),
         .irq_id_o               ( irq_id_out            ),
 
         .debug_req_i            ( dm_debug_req[CORE_MHARTID] ),
 
         .fetch_enable_i         ( fetch_enable_i        ),
-        .core_busy_o            ( core_busy_o           ),
+        .core_sleep_o            ( core_sleep_o           ));
 
-        .fregfile_disable_i     ( 1'b0                  ));
+        //.fregfile_disable_i     ( 1'b0                  ));
 
     // this handles read to RAM and memory mapped pseudo peripherals
     mm_ram #(
