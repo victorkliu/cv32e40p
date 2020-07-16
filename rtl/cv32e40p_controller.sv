@@ -28,9 +28,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-import cv32e40p_defines::*;
-
-module cv32e40p_controller
+module cv32e40p_controller import cv32e40p_pkg::*;
 #(
   parameter PULP_CLUSTER = 0
 )
@@ -209,22 +207,6 @@ module cv32e40p_controller
   logic debug_req_q;
   logic debug_req_pending;
 
-`ifndef SYNTHESIS
-  // synopsys translate_off
-  // make sure we are called later so that we do not generate messages for
-  // glitches
-  always_ff @(negedge clk)
-  begin
-    // print warning in case of decoding errors
-    if (is_decoding_o && illegal_insn_i) begin
-      $display("%t: Illegal instruction (core %0d) at PC 0x%h:", $time, cv32e40p_core.hart_id_i[3:0],
-               cv32e40p_id_stage.pc_id_i);
-    end
-  end
-  // synopsys translate_on
-`endif
-
-
   ////////////////////////////////////////////////////////////////////////////////////////////
   //   ____ ___  ____  _____    ____ ___  _   _ _____ ____   ___  _     _     _____ ____    //
   //  / ___/ _ \|  _ \| ____|  / ___/ _ \| \ | |_   _|  _ \ / _ \| |   | |   | ____|  _ \   //
@@ -348,7 +330,7 @@ module cv32e40p_controller
         // normal execution flow
         // in debug mode or single step mode we leave immediately (wfi=nop)
         if (wake_from_sleep_o) begin
-          ctrl_fsm_ns = FIRST_FETCH;
+          ctrl_fsm_ns  = FIRST_FETCH;
         end else begin
           ctrl_busy_o = 1'b0;
         end
@@ -425,7 +407,7 @@ module cv32e40p_controller
             halt_id_o         = 1'b1;
             halt_if_o         = 1'b1;
             csr_save_if_o     = 1'b1;
-            csr_save_cause_o  = 1'b1;
+            csr_save_cause_o  = !debug_mode_q;
 
             //no jump in this stage as we have to wait one cycle to go to Machine Mode
 
@@ -438,7 +420,7 @@ module cv32e40p_controller
           // branch in the EX stage is either not taken, or there is no
           // conditional branch in the EX stage
           else if (instr_valid_i || instr_valid_irq_flush_q) //valid block or replay after interrupt speculation
-          begin // now analyze the current instruction in the ID stage
+          begin: blk_decode_level1 // now analyze the current instruction in the ID stage
 
             is_decoding_o = 1'b1;
 
@@ -544,7 +526,7 @@ module cv32e40p_controller
                     default:;
 
                   endcase // unique case (1'b1)
-                end
+                end // else: !if(illegal_insn_i)
 
                 if (debug_single_step_i & ~debug_mode_q) begin
                     // prevent any more instructions from executing
@@ -574,11 +556,11 @@ module cv32e40p_controller
                             ctrl_fsm_ns = DBG_FLUSH;
                         endcase // unique case (1'b1)
                     end
-                end
+                end // if (debug_single_step_i & ~debug_mode_q)
 
-              end //decoding block
+              end // case: default : decoding block
             endcase
-          end  //valid block
+          end // block: blk_decode_level1 : valid block
           else begin
             is_decoding_o         = 1'b0;
             perf_pipeline_stall_o = data_load_event_i;
@@ -613,7 +595,7 @@ module cv32e40p_controller
 
           if(illegal_insn_q) begin
             csr_save_id_o     = 1'b1;
-            csr_save_cause_o  = 1'b1;
+            csr_save_cause_o  = !debug_mode_q;
             csr_cause_o       = {1'b0, EXC_CAUSE_ILLEGAL_INSN};
           end else begin
             unique case (1'b1)
@@ -624,7 +606,7 @@ module cv32e40p_controller
               end
               ecall_insn_i: begin
                 csr_save_id_o     = 1'b1;
-                csr_save_cause_o  = 1'b1;
+                csr_save_cause_o  = !debug_mode_q;
                 csr_cause_o       = {1'b0, current_priv_lvl_i == PRIV_LVL_U ? EXC_CAUSE_ECALL_UMODE : EXC_CAUSE_ECALL_MMODE};
               end
               default:;
@@ -717,11 +699,11 @@ module cv32e40p_controller
         csr_irq_sec_o     = irq_sec_ctrl_i;
 
         // IRQs (standard plus extension)
-        irq_ack_o         = 1'b1;
-        if(irq_sec_ctrl_i)
-          trap_addr_mux_o  = TRAP_MACHINE;
-        else
-          trap_addr_mux_o  = current_priv_lvl_i == PRIV_LVL_U ? TRAP_USER : TRAP_MACHINE;
+          irq_ack_o         = 1'b1;
+          if(irq_sec_ctrl_i)
+            trap_addr_mux_o  = TRAP_MACHINE;
+          else
+            trap_addr_mux_o  = current_priv_lvl_i == PRIV_LVL_U ? TRAP_USER : TRAP_MACHINE;
 
         csr_save_cause_o  = 1'b1;
         csr_cause_o       = {1'b1,irq_id_ctrl_i};
@@ -742,11 +724,11 @@ module cv32e40p_controller
         csr_irq_sec_o     = irq_sec_ctrl_i;
 
         // IRQs (standard plus extension)
-        irq_ack_o         = 1'b1;
-        if(irq_sec_ctrl_i)
-          trap_addr_mux_o = TRAP_MACHINE;
-        else
-          trap_addr_mux_o = current_priv_lvl_i == PRIV_LVL_U ? TRAP_USER : TRAP_MACHINE;
+          irq_ack_o         = 1'b1;
+          if(irq_sec_ctrl_i)
+            trap_addr_mux_o  = TRAP_MACHINE;
+          else
+            trap_addr_mux_o  = current_priv_lvl_i == PRIV_LVL_U ? TRAP_USER : TRAP_MACHINE;
 
         csr_save_cause_o  = 1'b1;
         csr_cause_o       = {1'b1,irq_id_ctrl_i};
@@ -767,7 +749,7 @@ module cv32e40p_controller
         ctrl_fsm_ns = DECODE;
 
         if(data_err_q) begin
-            //data_error
+            //PMP data_error
             pc_mux_o              = PC_EXCEPTION;
             pc_set_o              = 1'b1;
             trap_addr_mux_o       = TRAP_MACHINE;
@@ -777,11 +759,11 @@ module cv32e40p_controller
 
         end
         else if (is_fetch_failed_i) begin
-            //data_error
+            //instruction fetch error
             pc_mux_o              = PC_EXCEPTION;
             pc_set_o              = 1'b1;
             trap_addr_mux_o       = TRAP_MACHINE;
-            exc_pc_mux_o          = EXC_PC_EXCEPTION;
+            exc_pc_mux_o          = debug_mode_q ? EXC_PC_DBE : EXC_PC_EXCEPTION;
             exc_cause_o           = EXC_CAUSE_INSTR_FAULT;
 
         end
@@ -791,7 +773,7 @@ module cv32e40p_controller
               pc_mux_o              = PC_EXCEPTION;
               pc_set_o              = 1'b1;
               trap_addr_mux_o       = TRAP_MACHINE;
-              exc_pc_mux_o          = EXC_PC_EXCEPTION;
+              exc_pc_mux_o          = debug_mode_q ? EXC_PC_DBE : EXC_PC_EXCEPTION;
               illegal_insn_n        = 1'b0;
               if (debug_single_step_i && ~debug_mode_q)
                   ctrl_fsm_ns = DBG_TAKEN_IF;
@@ -812,7 +794,7 @@ module cv32e40p_controller
                   pc_mux_o              = PC_EXCEPTION;
                   pc_set_o              = 1'b1;
                   trap_addr_mux_o       = TRAP_MACHINE;
-                  exc_pc_mux_o          = EXC_PC_EXCEPTION;
+                  exc_pc_mux_o          = debug_mode_q ? EXC_PC_DBE : EXC_PC_EXCEPTION;
                   // TODO: why is this here, signal only needed for async exceptions
                   exc_cause_o           = EXC_CAUSE_ECALL_MMODE;
 
@@ -821,11 +803,11 @@ module cv32e40p_controller
               end
 
               mret_insn_i: begin
-                 csr_restore_mret_id_o =  1'b1;
+                 csr_restore_mret_id_o =  !debug_mode_q;
                  ctrl_fsm_ns           = XRET_JUMP;
               end
               uret_insn_i: begin
-                 csr_restore_uret_id_o =  1'b1;
+                 csr_restore_uret_id_o =  !debug_mode_q;
                  ctrl_fsm_ns           = XRET_JUMP;
               end
               dret_insn_i: begin
@@ -859,13 +841,15 @@ module cv32e40p_controller
         unique case(1'b1)
           mret_dec_i: begin
               //mret
-              pc_mux_o              = PC_MRET;
+              pc_mux_o              = debug_mode_q ? PC_EXCEPTION : PC_MRET;
               pc_set_o              = 1'b1;
+              exc_pc_mux_o          = EXC_PC_DBE; // only used if in debug_mode
           end
           uret_dec_i: begin
               //uret
-              pc_mux_o              = PC_URET;
+              pc_mux_o              = debug_mode_q ? PC_EXCEPTION : PC_URET;
               pc_set_o              = 1'b1;
+              exc_pc_mux_o          = EXC_PC_DBE; // only used if in debug_mode
           end
           dret_dec_i: begin
               //dret
@@ -1157,7 +1141,7 @@ module cv32e40p_controller
   // Assertions
   //----------------------------------------------------------------------------
 
-`ifndef VERILATOR
+`ifdef CV32E40P_ASSERT_ON
 
   // make sure that taken branches do not happen back-to-back, as this is not
   // possible without branch prediction in the IF stage
@@ -1181,6 +1165,6 @@ module cv32e40p_controller
 
   a_pulp_cluster_excluded_states : assert property(p_pulp_cluster_excluded_states);
 
-`endif
+  `endif
 
 endmodule // cv32e40p_controller
