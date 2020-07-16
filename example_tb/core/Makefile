@@ -44,18 +44,23 @@ VSIM_DEBUG_FLAGS	= -debugdb
 VSIM_GUI_FLAGS          = -gui -debugdb
 VSIM_SCRIPT             = vsim.tcl
 
+VCS                 = vcs
+VCS_HOME            = /home/eda/vcs-mx-vL-201606
+VCS_FLAGS           = -assert svaext
+SIMV_FLAGS      	= -l simv.log +firmware=custom/hello_world.hex
+
 # RTL source files
-RTLSRC_HOME             := ../..
+RTLSRC_HOME         := ../..
 RTLSRC_TB_PKG		:= include/perturbation_pkg.sv include/cv32e40p_tracer_pkg.sv
 RTLSRC_TB_TOP		:= tb_top.sv
-RTLSRC_TB		:= $(wildcard *.sv)
-RTLSRC_VERI_TB          := $(filter-out tb_top.sv, $(wildcard *.sv))
-RTLSRC_INCDIR           := $(RTLSRC_HOME)/rtl/include
-RTLSRC_PKG		:= $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv \
-				$(addprefix $(RTLSRC_HOME)/rtl/include/,\
-				cv32e40p_apu_core_pkg.sv cv32e40p_pkg.sv)
-RTLSRC			:= $(RTLSRC_HOME)/bhv/cv32e40p_sim_clock_gate.sv $(filter-out $(RTLSRC_HOME)/rtl/cv32e40p_register_file_latch.sv,\
-				$(wildcard $(RTLSRC_HOME)/rtl/*.sv))
+RTLSRC_TB			:= $(wildcard *.sv)
+RTLSRC_VERI_TB      := $(filter-out tb_top.sv, $(wildcard *.sv))
+RTLSRC_INCDIR       := $(RTLSRC_HOME)/rtl/include
+RTLSRC_PKG			:= $(RTLSRC_HOME)/rtl/fpnew/src/fpnew_pkg.sv \
+					$(addprefix $(RTLSRC_HOME)/rtl/include/,\
+					cv32e40p_apu_core_pkg.sv cv32e40p_pkg.sv)
+RTLSRC				:= $(RTLSRC_HOME)/bhv/cv32e40p_sim_clock_gate.sv $(filter-out $(RTLSRC_HOME)/rtl/cv32e40p_register_file_latch.sv,\
+					$(wildcard $(RTLSRC_HOME)/rtl/*.sv))
 RTLSRC_FPNEW_INCDIR := $(RTLSRC_HOME)/rtl/fpnew/src/common_cells/include
 RTLSRC_FPNEWPKG     := $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv
 RTLSRC_FPNEW        := $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/*.sv) $(wildcard $(RTLSRC_HOME)/rtl/fpnew/src/fpu_div_sqrt_mvp/hdl/*.sv) \
@@ -109,6 +114,26 @@ vsim-all-fp: .opt-rtl-fp
 	$(VOPT) -work $(VWORK) $(VOPT_FLAGS) -g FPU=1 $(RTLSRC_VLOG_TB_TOP) -o \
 	$(RTLSRC_VOPT_TB_TOP)
 	touch .opt-rtl-fp
+
+# vcs testbench compilation
+
+vcsify: $(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB)
+	$(VCS) +vc -sverilog -race=all -ignore unique_checks -full64 \
+		-timescale=1ns/1ps \
+		-CC "-I$(VCS_HOME)/include -O3 -march=native" $(VCS_FLAGS) \
+		$(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB) \
+		+incdir+$(RTLSRC_INCDIR)
+
+vcs-run: vcsify custom/hello_world.hex
+	./simv $(SIMV_FLAGS)
+
+vcs-run-gui: VCS_FLAGS+=-debug_all
+vcs-run-gui: vcsify custom/hello_world.hex
+	./simv $(SIMV_FLAGS) -gui
+
+vcs-clean:
+	rm -rf simv* *.daidir *.vpd *.db csrc ucli.key vc_hdrs.h
+
 
 # run tb and exit
 .PHONY: vsim-run
