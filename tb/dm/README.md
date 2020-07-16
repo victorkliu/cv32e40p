@@ -45,7 +45,7 @@ build and link your own program. Look into the `prog` folder for an example.
 
 Example Run
 -----------------------
-1. `make veri-run`
-3. (in new terminal) `export JTAG_VPI_PORT=port_name_from 1.`
+1. `make vcs-run` or `make vcs-run-dump` to dump fsdb waveform
 2. (in new terminal) `openocd -f pulpissimo_debug.cfg`
+3. (in new terminal) `export JTAG_VPI_PORT=port_name_from 1.`
 4. Now you can connect with gdb and interact with the testbench

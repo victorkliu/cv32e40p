@@ -240,7 +240,7 @@ tb-clean:
 
 # compile and dump program
 prog/test.elf: prog/test.c prog/syscalls.c prog/start.S
-	$(RISCV_EXE_PREFIX)gcc -march=rv32imc -o $@ -w -Os \
+	$(RISCV_EXE_PREFIX)gcc -march=rv32imc -o $@ -w -Os -g \
 		-T prog/link.ld  \
 		$^
 	chmod u+x prog/test.elf
