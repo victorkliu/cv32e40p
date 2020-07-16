@@ -42,10 +42,11 @@ VSIM_DEBUG_FLAGS	= -debugdb
 VSIM_GUI_FLAGS          = -gui -debugdb
 VSIM_SCRIPT             = vsim.tcl
 
-VCS                     = vcs-2017.03-kgf vcs
-VCS_HOME                = /usr/pack/vcs-2017.03-kgf
-VCS_FLAGS               =
-SIMV_FLAGS              =
+VCS                     = vcs
+VCS_HOME                = /home/eda/vcs-mx-vL-201606
+VCS_FLAGS               = -assert svaext
+SIMV_FLAGS              = -l simv.log +firmware=firmware/firmware.hex
+CUSTOM_SIMV_FLAGS      = -l simv.log +firmware=custom/hello_world.hex
 
 # verilator configuration
 VERILATOR		= verilator
@@ -165,6 +166,10 @@ vcs-run-gui: vcsify firmware/firmware.hex
 
 vcs-clean:
 	rm -rf simv* *.daidir *.vpd *.db csrc ucli.key vc_hdrs.h
+
+custom-vcs-run: vcsify custom/hello_world.hex
+	./simv $(CUSTOM_SIMV_FLAGS)
+
 
 # verilator testbench compilation
 
