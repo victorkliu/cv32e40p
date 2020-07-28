@@ -193,6 +193,9 @@ tb-clean-fp:
 %.hex: %.elf
 	$(RISCV_EXE_PREFIX)objcopy -O verilog $< $@
 
+%.dump: %.elf
+	$(RISCV_EXE_PREFIX)objdump -D $< > $@
+
 # Running custom programs:
 # This is an example for running a Hello World in the testbench
 # We link with our custom crt0.s and syscalls.c against newlib so that we can
@@ -208,6 +211,7 @@ custom/hello_world.elf: custom/hello_world.c
 		-I mem_stall \
 		-L $(RISCV)/riscv32-unknown-elf/lib \
 		-lc -lm -lgcc
+	$(RISCV_EXE_PREFIX)objdump -D custom/hello_world.elf > custom/hello_world.dump
 custom-clean:
 	rm -rf custom/hello_world.elf custom/hello_world.hex
 
